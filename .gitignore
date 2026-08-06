@@ -6,3 +6,7 @@ build/
 venv/
 *.exe
 keystrokes_config.json
+key.txt
+obj/
+.git/
+.gitignore

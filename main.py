@@ -75,6 +75,9 @@ Beta-3.3.1 更新日志:
 ======================== Release =========================
 Release-1.0.0 更新日志:
 1. 上传代码到GitHub
+Release-1.0.1 更新日志:
+1. 修复了Release-1.0.0中的版本号错误
+2. 修改了版本号检测的1个逻辑
 ==========================================================
 """
 
@@ -86,7 +89,7 @@ Release-1.0.0 更新日志:
 # =========================================================
 
 """
-Beta-3.2.1目录树:
+Release-1.0.1 目录树:
 code
 ├── build.bat
 ├── build2.bat
@@ -94,10 +97,10 @@ code
 ├── icon.ico
 └── main.py
 
-Beta-3.2.1 文件详解:
+Release-1.0.1 文件详解:
 1. build.bat: 打包程序 - 需要python3.12
 2. build2.bat: 高级打包程序 - 需要python3.12
-3. keystrokes_config.json: 配置文件
+3. keystrokes_config.json: 配置文件 - 在运行main.py或keystrokes时会自动生成
 4. icon.ico: 程序图标
 5. main.py: 主程序 - python3.6+可用, python3.8或更高版本更加稳定, python3.12是开发时使用的版本, 可能更加稳定
 """
@@ -121,7 +124,7 @@ from pynput import keyboard, mouse
 
 # ======================== 默认配置 ========================
 CONFIG_FILE = "keystrokes_config.json"
-VERSION = "Beta-3.2.1"
+VERSION = "Release-1.0.1"
 
 VERSION_LIST = [
     "Alpha-1.0.0",
@@ -144,7 +147,10 @@ VERSION_LIST = [
     "Beta-3.1.8",
     "Beta-3.1.9",
     "Beta-3.2.0",
-    "Beta-3.2.1"
+    "Beta-3.3.0",
+    "Beta-3.3.1",
+    "Release-1.0.0",
+    "Release-1.0.1"
 ]
 
 DEFAULT_CONFIG = {
@@ -241,12 +247,14 @@ def check_config():
         reply = QMessageBox.question(
             None,
             "版本错误",
-            f"配置文件版本号 '{config_version}' 不在版本列表中，请检查你是否修改了配置文件中的 version 值。\n\n是否继续运行？\n选择「是」将继续（保留原版本号），选择「否」退出程序。",
+            f"配置文件版本号 '{config_version}' 不在版本列表中，请检查你是否修改了配置文件中的 version 值。\n\n是否继续运行？\n选择「是」将继续（修复版本号），选择「否」退出程序。",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
         if reply == QMessageBox.Yes:
-            pass  # 保留原版本号
+            # 修复版本号
+            config["version"] = current_ver
+            errors.append(f"版本已修复至 {current_ver}")
         else:
             sys.exit(0)
     elif config_version != current_ver:
