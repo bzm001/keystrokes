@@ -9,7 +9,7 @@
 # keystrokes.py
 
 # author: bzm001
-# Github: https://github.com/bzm001
+# Github: https://github.com/bzm001/keystrokes
 
 """
 ========================= Alpha ==========================
@@ -68,8 +68,13 @@ Beta-3.3.0 更新日志:
 4. 添加check_config函数对于animation_duration的检查部分
 5. 优化check_config函数对于version的检查部分
 6. 添加对xy是否超过屏幕范围的检查
-Beta-3.2.1 更新日志:
+Beta-3.3.1 更新日志:
 1. 更改build.bat和build2.bat名称为build312.bat和build312-2.bat
+==========================================================
+
+======================== Release =========================
+Release-1.0.0 更新日志:
+1. 上传代码到GitHub
 ==========================================================
 """
 
