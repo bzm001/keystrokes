@@ -124,18 +124,6 @@ version：当前配置文件版本（自动维护）。
 
 ---
 
-🛠️ 技术栈
-
-Python 3.12
-
-PyQt5（GUI）
-
-pynput（键盘/鼠标监听）
-
-PyInstaller（打包）
-
----
-
 📝 版本历史
 
 Release-1.0.0 (2026-08-06)
