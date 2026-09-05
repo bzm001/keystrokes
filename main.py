@@ -6,7 +6,6 @@
 # Python 3.12 is the version used in the development of this project, which may be more stable
 
 # keystrokes
-# keystrokes.py
 
 # author: bzm001
 # Github: https://github.com/bzm001/keystrokes
@@ -78,8 +77,18 @@ Release-1.0.0 更新日志:
 Release-1.0.1 更新日志:
 1. 修复了Release-1.0.0中的版本号错误
 2. 修改了版本号检测的1个逻辑
-3. 添加了LICENSE文件
-4. 添加了README.md文件
+Release-2.0.0 更新日志:
+1. 新增版本检测功能，启动时从GitHub获取最新版本并提示更新
+2. 设置界面增加“启用版本检查”复选框
+3. 支持永久忽略特定版本
+4. 修复版本检测对话框显示纯黑背景的问题（将父窗口设为None）
+5. 修复配置文件生成位置不正确的问题（改为基于脚本所在目录的绝对路径）
+6. 统一图标加载路径，确保与脚本同目录
+7. 优化文件详解和目录树
+8. 回退了Beta-3.3.1的更改
+9. 优化build.bat和build2.bat, 更容易修改python版本, 添加了PY_VER变量
+10. 正式支持Python-3.13和Python-3.14
+11. 废除了WARNING中的“打包时需要使用python3.12”项
 ==========================================================
 """
 
@@ -87,46 +96,63 @@ Release-1.0.1 更新日志:
 # - 直接运行程序时至少需要python3.6
 # - python3.8或更高版本更加稳定
 # - python3.12是开发时使用的版本，可能更加稳定
-# - 打包时需要使用python3.12
 # =========================================================
 
 """
-Release-1.0.1 目录树:
+二次开发必看!!!
+
+Release-2.0.0 目录树("*"表示无实际用途, "^"表示后期或者运行程序生成的文件):
 code
 ├── build.bat
 ├── build2.bat
-├── keystrokes_config.json
 ├── icon.ico
+├── ^keystrokes_config.json
+├── *VERSION
+├── *README.md
+├── *LICENSE
+├── *.gitignore
 └── main.py
 
-Release-1.0.1 文件详解:
+Release-2.0.0 文件详解("*"表示无实际用途, "^"表示后期或者运行程序生成的文件):
 1. build.bat: 打包程序 - 需要python3.12
 2. build2.bat: 高级打包程序 - 需要python3.12
-3. keystrokes_config.json: 配置文件 - 在运行main.py或keystrokes时会自动生成
-4. icon.ico: 程序图标
-5. main.py: 主程序 - python3.6+可用, python3.8或更高版本更加稳定, python3.12是开发时使用的版本, 可能更加稳定
+3. icon.ico: 程序图标
+4. main.py: 主程序 - python3.6+可用, python3.8或更高版本更加稳定, python3.12是开发时使用的版本, 可能更加稳定
+5. ^keystrokes_config.json: 配置文件 - 在运行main.py或keystrokes时会自动生成
+6. *VERSION: 在本地无实际用途, 在github上为程序提供更新信息, 可以删除本地文件, 不会影响程序运行
+7. *README.md: 项目说明文件, 已经了解后可以删除, 不会影响程序运行
+8. *LICENSE: 软件许可证文件, 已经了解后可以删除, 不会影响程序运行
+9. *.gitignore: git忽略文件, 仅在开发时使用, 可以删除, 不会影响程序运行
 """
 
 import sys
 import json
 import time
 import os
-
+import webbrowser
 from collections import deque
 from threading import Event
 
 from PyQt5.QtWidgets import (QApplication, QWidget, QSystemTrayIcon, QMenu,
                              QDialog, QSlider, QPushButton, QSpinBox, QDoubleSpinBox,
                              QLabel, QHBoxLayout, QVBoxLayout, QColorDialog,
-                             QFormLayout, QDialogButtonBox, QMessageBox)
+                             QFormLayout, QDialogButtonBox, QMessageBox, QCheckBox)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QPoint
 from PyQt5.QtGui import (QPainter, QColor, QLinearGradient, QPen, QFont,
                          QIcon, QPixmap, QBrush)
 from pynput import keyboard, mouse
 
+# ======================== 获取脚本所在目录 ========================
+if getattr(sys, 'frozen', False):
+    # 打包后的 .exe 环境
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    # 开发环境（直接运行 .py）
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # ======================== 默认配置 ========================
-CONFIG_FILE = "keystrokes_config.json"
-VERSION = "Release-1.0.1"
+CONFIG_FILE = os.path.join(BASE_DIR, "keystrokes_config.json")
+VERSION = "Release-2.0.0"
 
 VERSION_LIST = [
     "Alpha-1.0.0",
@@ -152,7 +178,8 @@ VERSION_LIST = [
     "Beta-3.3.0",
     "Beta-3.3.1",
     "Release-1.0.0",
-    "Release-1.0.1"
+    "Release-1.0.1",
+    "Release-2.0.0"
 ]
 
 DEFAULT_CONFIG = {
@@ -163,7 +190,9 @@ DEFAULT_CONFIG = {
     "gradient_end": "#ffff00",
     "scale": 0.75,
     "animation_duration": 0.05,
-    "version": VERSION
+    "version": VERSION,
+    "check_for_updates": True,
+    "ignored_version": ""
 }
 
 # ======================== 配置检查 ========================
@@ -224,6 +253,14 @@ def check_config():
                 if config[key] > 0.5:
                     config[key] = default
                     errors.append(f"键 '{key}' 值范围错误（应 ≤ 0.5），已重置为 {default}")
+            elif key == "check_for_updates":
+                if not isinstance(config[key], bool):
+                    config[key] = True
+                    errors.append("键 'check_for_updates' 类型错误，已重置为 True")
+            elif key == "ignored_version":
+                if not isinstance(config[key], str):
+                    config[key] = ""
+                    errors.append("键 'ignored_version' 类型错误，已重置为空字符串")
 
     # ========== 屏幕边界检查 ==========
     screen = QApplication.primaryScreen()
@@ -277,6 +314,22 @@ def check_config():
         json.dump(config, f, indent=2, ensure_ascii=False)
 
     return 0 if not errors else "\n".join(errors)
+
+# ======================== 版本检查线程 ========================
+class UpdateCheckThread(QThread):
+    finished = pyqtSignal(str)   # 远程版本号
+    error = pyqtSignal(str)      # 错误信息
+
+    def run(self):
+        try:
+            import urllib.request
+            url = "https://raw.githubusercontent.com/bzm001/keystrokes/main/VERSION"
+            req = urllib.request.Request(url, headers={"User-Agent": "Keystrokes"})
+            with urllib.request.urlopen(req, timeout=10) as response:
+                data = response.read().decode('utf-8').strip()
+                self.finished.emit(data)
+        except Exception as e:
+            self.error.emit(str(e))
 
 # ======================== 自定义按键控件 ========================
 class KeyWidget(QWidget):
@@ -533,7 +586,7 @@ class SettingsDialog(QDialog):
 
         self.setWindowTitle(f"Keystrokes - Version:{VERSION}")
         self.setModal(True)
-        self.setFixedSize(440, 400)
+        self.setFixedSize(440, 450)  # 高度增加以容纳新控件
 
         self.setStyleSheet("""
             QDialog, QSpinBox, QSlider, QLabel, QPushButton, QDialogButtonBox, QWidget {
@@ -652,6 +705,11 @@ class SettingsDialog(QDialog):
         anim_layout.addWidget(self.anim_spin)
         form.addRow("动画时长 (秒):", anim_widget)
 
+        # ---- 新增：启用版本检查复选框 ----
+        self.update_check_cb = QCheckBox("启用版本检查")
+        self.update_check_cb.setChecked(self.main.config.get("check_for_updates", True))
+        form.addRow(self.update_check_cb)
+
         layout.addLayout(form)
 
         btn_box = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
@@ -713,6 +771,8 @@ class SettingsDialog(QDialog):
         self.main.set_scale(scale)
         anim_duration = self.anim_spin.value()
         self.main.set_animation_duration(anim_duration)
+        # 保存版本检查设置
+        self.main.config["check_for_updates"] = self.update_check_cb.isChecked()
         self.main.save_config()
         self.main.raise_()
         self.main.activateWindow()
@@ -779,6 +839,10 @@ class MainWindow(QWidget):
 
         self.create_tray_icon()
         self.drag_pos = None
+
+        # ---- 延迟执行版本检查 ----
+        self.update_thread = None
+        QTimer.singleShot(1500, self.check_for_updates)
 
     def create_keys(self, scale):
         for key in list(self.keys.values()):
@@ -1019,7 +1083,9 @@ class MainWindow(QWidget):
             "gradient_end": self.gradient_end.name(),
             "scale": self.scale,
             "animation_duration": self.animation_duration,
-            "version": VERSION
+            "version": VERSION,
+            "check_for_updates": self.config.get("check_for_updates", True),
+            "ignored_version": self.config.get("ignored_version", "")
         }
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
@@ -1035,28 +1101,57 @@ class MainWindow(QWidget):
         self.listener_thread.wait()
         event.accept()
 
+    # ======================== 版本检测 ========================
+    def check_for_updates(self):
+        if not self.config.get("check_for_updates", True):
+            return
+        ignored = self.config.get("ignored_version", "")
+        if ignored == VERSION:
+            return
+        self.update_thread = UpdateCheckThread()
+        self.update_thread.finished.connect(self.on_update_finished)
+        self.update_thread.error.connect(self.on_update_error)
+        self.update_thread.start()
+
+    def on_update_finished(self, remote_version):
+        if remote_version != VERSION:
+            # 使用 None 作为父窗口，避免继承主窗口透明背景
+            msg = QMessageBox(None)
+            msg.setWindowTitle("发现新版本")
+            msg.setText(f"发现新版本：{remote_version}\n当前版本：{VERSION}\n是否更新？")
+            msg.setIcon(QMessageBox.Information)
+            # 自定义按钮
+            update_btn = msg.addButton("更新", QMessageBox.AcceptRole)
+            ignore_btn = msg.addButton("忽略", QMessageBox.RejectRole)
+            ignore_perm_btn = msg.addButton("永久忽略", QMessageBox.DestructiveRole)
+            msg.exec_()
+            clicked = msg.clickedButton()
+            if clicked == update_btn:
+                webbrowser.open("https://github.com/bzm001/keystrokes/releases")
+            elif clicked == ignore_perm_btn:
+                self.config["ignored_version"] = VERSION
+                self.save_config()
+
+    def on_update_error(self, error_msg):
+        # 判断是否超时，使用 None 作为父窗口
+        if "timed out" in error_msg.lower() or "timeout" in error_msg.lower():
+            QMessageBox.critical(None, "检查更新失败", "连接超时，请检查网络。")
+        else:
+            QMessageBox.critical(None, "检查更新失败", f"检查更新时发生错误：{error_msg}\n请检查网络或稍后再试。")
+
 # ======================== 入口 ========================
 def main():
     app = QApplication(sys.argv)
-    # 设置程序图标
-    # 尝试加载图标（若 exe 打包后，图标位于 exe 同级目录）
-    icon_path = os.path.join(os.path.dirname(__file__), "icon.png")
+    # 设置程序图标（基于脚本所在目录）
+    icon_path = os.path.join(BASE_DIR, "icon.ico")
     if not os.path.exists(icon_path):
-         # 开发环境：尝试从当前目录加载
-        icon_path = "icon.ico"
+        icon_path = os.path.join(BASE_DIR, "icon.png")
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
 
     app.setQuitOnLastWindowClosed(False)
 
-    app.setStyleSheet("""
-        QDialog, QWidget {
-            background-color: #fafafa;
-        }
-        QLabel {
-            color: #000000;
-        }
-    """)
+    # 不再设置全局样式表，避免干扰 QMessageBox 等对话框
 
     window = MainWindow()
     window.show()
