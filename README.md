@@ -1,6 +1,6 @@
 # Keystrokes
 
-[![Release](https://img.shields.io/badge/Release-1.0.0-blue.svg)](https://github.com/bzm001/keystrokes/releases)
+[![Release](https://img.shields.io/badge/Release-2.0.0-blue.svg)](https://github.com/bzm001/keystrokes/releases)
 [![Python](https://img.shields.io/badge/Python-3.12-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
